@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Truck } from 'lucide-react';
 import { Header, type ViewKey } from '@/components/layout/Header';
+import { Footer } from '@/components/layout/Footer';
 import { OverviewMetrics } from '@/components/overview/OverviewMetrics';
 import { LiveShipmentNetwork } from '@/components/map/LiveShipmentNetwork';
 import { ExceptionCenter } from '@/components/exceptions/ExceptionCenter';
@@ -42,7 +43,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-base pb-16">
+    <div className="flex min-h-screen flex-col bg-surface-base">
       <Header
         activeView={view}
         onNavigate={setView}
@@ -52,7 +53,7 @@ function App() {
         exceptionCount={criticalExceptionCount}
       />
 
-      <main className="mx-auto max-w-[1440px] space-y-5 px-6 py-6">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-5 px-6 py-6">
         {view === 'overview' && (
           <>
             <OverviewMetrics metrics={overview} />
@@ -80,6 +81,8 @@ function App() {
           <AnalyticsView shipments={shipments} carriers={carriers} exceptions={exceptions} />
         )}
       </main>
+
+      <Footer />
 
       <ShipmentDetailPanel
         shipment={selectedShipment}

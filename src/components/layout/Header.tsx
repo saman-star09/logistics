@@ -39,7 +39,7 @@ export function Header({
               <Truck size={18} className="text-white" strokeWidth={2.25} />
             </div>
             <div>
-              <p className="text-sm font-bold leading-tight text-ink-primary">DHL Supply Chain</p>
+              <p className="text-sm font-bold leading-tight text-ink-primary">Meridian Freight Network</p>
               <p className="text-[11px] leading-tight text-ink-muted">Logistics Operations Center</p>
             </div>
           </div>

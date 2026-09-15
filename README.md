@@ -1,8 +1,8 @@
-# DHL Supply Chain — Real-Time Logistics Operations Center
+# Meridian Freight Network — Real-Time Logistics Operations Center
 
 A high-fidelity logistics operations dashboard concept built as a portfolio piece, inspired by real-world third-party logistics (3PL) workflows. It gives coordinators, dispatchers, and operations managers a single command center to monitor shipments, spot delivery risk, and act on transportation exceptions.
 
-> Portfolio concept/prototype inspired by 3PL operations workflows. Not an official DHL product.
+> Independent concept inspired by real-world 3PL operations. "Meridian Freight Network" is a fictional company invented for this project — it is not affiliated with, endorsed by, or built for any real carrier or logistics company.
 
 ## What it does
 

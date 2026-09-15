@@ -26,7 +26,7 @@ let counter = 48000 + Math.floor(Math.random() * 400);
 
 function nextShipmentId(): string {
   counter += 1;
-  return `DHL-${counter}`;
+  return `MFN-${counter}`;
 }
 
 type NewTimelineEvent = Omit<TimelineEvent, 'id'>;
