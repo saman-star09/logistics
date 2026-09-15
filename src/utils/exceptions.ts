@@ -68,7 +68,7 @@ export function deriveExceptions(shipments: Shipment[], acknowledged: Set<string
       recommendedAction: ACTION_COPY[type],
       route: shipment.route,
       carrierName: carrier?.name ?? 'Unknown Carrier',
-      createdAt: shipment.timeline[shipment.timeline.length - 1]?.timestamp ?? shipment.createdAt,
+      createdAt: shipment.updatedAt,
       acknowledged: acknowledged.has(shipment.id),
     });
   }

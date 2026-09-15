@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { Carrier, Shipment } from '@/types';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { formatDelay, formatEta, formatRelativeSeconds } from '@/utils/format';
+import { useShipmentTimeline } from '@/hooks/useShipmentTimeline';
 import { DeliveryProgress } from './DeliveryProgress';
 import { ActivityTimeline } from './ActivityTimeline';
 
@@ -22,6 +23,8 @@ export function ShipmentDetailPanel({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const timeline = useShipmentTimeline(shipment?.id ?? null);
 
   if (!shipment) return null;
 
@@ -73,7 +76,7 @@ export function ShipmentDetailPanel({
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
               Shipment Activity Timeline
             </h3>
-            <ActivityTimeline events={shipment.timeline} />
+            <ActivityTimeline events={timeline} />
           </section>
         </div>
       </div>

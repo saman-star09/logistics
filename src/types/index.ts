@@ -56,7 +56,7 @@ export interface Shipment {
   createdAt: string;
   pickedUpAt: string;
   departedAt: string;
-  timeline: TimelineEvent[];
+  updatedAt: string;
   stationarySeconds: number;
   signalLostSeconds: number;
 }

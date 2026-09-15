@@ -2,7 +2,7 @@ import type { Priority, Shipment, ShipmentStatus, TimelineEvent } from '@/types'
 import { CITY_BY_ID, TRADE_LANES, interpolate } from './cities';
 import { CARRIERS } from './carriers';
 import { currentLocationLabel } from './waypoints';
-import { pick, uid } from '@/utils/random';
+import { pick } from '@/utils/random';
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -29,16 +29,17 @@ function nextShipmentId(): string {
   return `DHL-${counter}`;
 }
 
-function buildTimeline(createdAt: Date, pickedUpAt: Date, departedAt: Date, checkpoint?: string): TimelineEvent[] {
-  const events: TimelineEvent[] = [
-    { id: uid('evt'), timestamp: createdAt.toISOString(), label: 'Shipment created', kind: 'created' },
-    { id: uid('evt'), timestamp: pickedUpAt.toISOString(), label: 'Shipment picked up', kind: 'pickup' },
-    { id: uid('evt'), timestamp: departedAt.toISOString(), label: 'Shipment departed origin', kind: 'departed' },
+type NewTimelineEvent = Omit<TimelineEvent, 'id'>;
+
+function buildTimeline(createdAt: Date, pickedUpAt: Date, departedAt: Date, checkpoint?: string): NewTimelineEvent[] {
+  const events: NewTimelineEvent[] = [
+    { timestamp: createdAt.toISOString(), label: 'Shipment created', kind: 'created' },
+    { timestamp: pickedUpAt.toISOString(), label: 'Shipment picked up', kind: 'pickup' },
+    { timestamp: departedAt.toISOString(), label: 'Shipment departed origin', kind: 'departed' },
   ];
   if (checkpoint) {
     const checkpointAt = new Date(departedAt.getTime() + 30 * 60 * 1000);
     events.push({
-      id: uid('evt'),
       timestamp: checkpointAt.toISOString(),
       label: `Vehicle entered ${checkpoint}`,
       kind: 'checkpoint',
@@ -53,7 +54,12 @@ interface CreateOptions {
   progress?: number;
 }
 
-export function createShipment(options: CreateOptions): Shipment {
+export interface CreatedShipment {
+  shipment: Shipment;
+  events: NewTimelineEvent[];
+}
+
+export function createShipment(options: CreateOptions): CreatedShipment {
   const { now } = options;
   const [originId, destId] = pick(TRADE_LANES);
   const origin = CITY_BY_ID.get(originId)!;
@@ -87,28 +93,33 @@ export function createShipment(options: CreateOptions): Shipment {
   const stationarySeconds = status === 'delayed' ? 40 * 60 + Math.floor(Math.random() * 20 * 60) : Math.floor(Math.random() * 40);
   const signalLostSeconds = status === 'at_risk' && Math.random() > 0.5 ? 30 * 60 + Math.floor(Math.random() * 15 * 60) : 0;
 
+  const id = nextShipmentId();
+
   return {
-    id: nextShipmentId(),
-    originCityId: originId,
-    destinationCityId: destId,
-    route: `${origin.name} → ${dest.name}`,
-    region: dest.region,
-    carrierId: carrier.id,
-    status,
-    priority: priorityForStatus(status),
-    progress: status === 'delivered' ? 1 : progress,
-    position,
-    scheduledEta: scheduledEta.toISOString(),
-    predictedEta: predictedEta.toISOString(),
-    delayMinutes,
-    lastUpdateSeconds: Math.floor(Math.random() * 20),
-    currentLocationLabel: status === 'delivered' ? dest.name : label,
-    createdAt: createdAt.toISOString(),
-    pickedUpAt: pickedUpAt.toISOString(),
-    departedAt: departedAt.toISOString(),
-    timeline: buildTimeline(createdAt, pickedUpAt, departedAt, label !== `${origin.name} Depot` ? label : undefined),
-    stationarySeconds,
-    signalLostSeconds,
+    shipment: {
+      id,
+      originCityId: originId,
+      destinationCityId: destId,
+      route: `${origin.name} → ${dest.name}`,
+      region: dest.region,
+      carrierId: carrier.id,
+      status,
+      priority: priorityForStatus(status),
+      progress: status === 'delivered' ? 1 : progress,
+      position,
+      scheduledEta: scheduledEta.toISOString(),
+      predictedEta: predictedEta.toISOString(),
+      delayMinutes,
+      lastUpdateSeconds: Math.floor(Math.random() * 20),
+      currentLocationLabel: status === 'delivered' ? dest.name : label,
+      createdAt: createdAt.toISOString(),
+      pickedUpAt: pickedUpAt.toISOString(),
+      departedAt: departedAt.toISOString(),
+      updatedAt: now.toISOString(),
+      stationarySeconds,
+      signalLostSeconds,
+    },
+    events: buildTimeline(createdAt, pickedUpAt, departedAt, label !== `${origin.name} Depot` ? label : undefined),
   };
 }
 
@@ -120,6 +131,6 @@ function weightedStatus(): ShipmentStatus {
   return 'delivered';
 }
 
-export function respawnShipment(now: Date): Shipment {
+export function respawnShipment(now: Date): CreatedShipment {
   return createShipment({ now, status: weightedStatus(), progress: 0.02 + Math.random() * 0.08 });
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Truck } from 'lucide-react';
 import { Header, type ViewKey } from '@/components/layout/Header';
 import { OverviewMetrics } from '@/components/overview/OverviewMetrics';
 import { LiveShipmentNetwork } from '@/components/map/LiveShipmentNetwork';
@@ -14,6 +15,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const {
+    ready,
     shipments,
     exceptions,
     overview,
@@ -27,6 +29,17 @@ function App() {
   const carrierMap = useMemo(() => new Map(carriers.map((c) => [c.id, c])), [carriers]);
   const selectedShipment = shipments.find((s) => s.id === selectedId) ?? null;
   const criticalExceptionCount = exceptions.filter((e) => e.severity === 'critical' && !e.acknowledged).length;
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface-base">
+        <div className="flex h-12 w-12 animate-pulse items-center justify-center rounded-lg bg-accent-blue">
+          <Truck size={22} className="text-white" strokeWidth={2.25} />
+        </div>
+        <p className="text-sm text-ink-secondary">Connecting to live network…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-base pb-16">

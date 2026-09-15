@@ -1,7 +1,6 @@
-import type { Shipment, ShipmentStatus } from '@/types';
+import type { Shipment, ShipmentStatus, TimelineEvent } from '@/types';
 import { CITY_BY_ID, interpolate } from '@/data/cities';
 import { currentLocationLabel } from '@/data/waypoints';
-import { uid } from './random';
 
 function statusFromSignals(stationarySeconds: number, signalLostSeconds: number, delayMinutes: number): ShipmentStatus {
   if (stationarySeconds > 20 * 60 || signalLostSeconds > 25 * 60) return 'delayed';
@@ -9,9 +8,16 @@ function statusFromSignals(stationarySeconds: number, signalLostSeconds: number,
   return 'in_transit';
 }
 
-export function advanceShipment(shipment: Shipment, now: Date, tickSeconds: number): Shipment {
+export interface AdvanceResult {
+  shipment: Shipment;
+  newEvent?: Omit<TimelineEvent, 'id'>;
+}
+
+export function advanceShipment(shipment: Shipment, now: Date, tickSeconds: number): AdvanceResult {
   if (shipment.status === 'delivered') {
-    return { ...shipment, lastUpdateSeconds: shipment.lastUpdateSeconds + tickSeconds };
+    return {
+      shipment: { ...shipment, lastUpdateSeconds: shipment.lastUpdateSeconds + tickSeconds, updatedAt: now.toISOString() },
+    };
   }
 
   const origin = CITY_BY_ID.get(shipment.originCityId)!;
@@ -52,33 +58,30 @@ export function advanceShipment(shipment: Shipment, now: Date, tickSeconds: numb
   const status: ShipmentStatus = delivered ? 'delivered' : statusFromSignals(stationarySeconds, signalLostSeconds, delayMinutes);
   const priority = delivered ? 'normal' : status === 'delayed' ? 'critical' : status === 'at_risk' ? 'high' : 'normal';
 
-  const timeline = shipment.timeline;
-  const shouldLogCheckpoint =
-    !delivered && label !== shipment.currentLocationLabel && label !== `${origin.name} Depot` && timeline.length < 8;
-  const shouldLogDelivered = delivered;
+  const shouldLogCheckpoint = !delivered && label !== shipment.currentLocationLabel && label !== `${origin.name} Depot`;
 
-  const nextTimeline = shouldLogDelivered
-    ? [
-        ...timeline,
-        { id: uid('evt'), timestamp: now.toISOString(), label: `Delivered to ${dest.name}`, kind: 'delivered' as const },
-      ]
+  const newEvent: Omit<TimelineEvent, 'id'> | undefined = delivered
+    ? { timestamp: now.toISOString(), label: `Delivered to ${dest.name}`, kind: 'delivered' }
     : shouldLogCheckpoint
-      ? [...timeline, { id: uid('evt'), timestamp: now.toISOString(), label: `Vehicle entered ${label}`, kind: 'checkpoint' as const }]
-      : timeline;
+      ? { timestamp: now.toISOString(), label: `Vehicle entered ${label}`, kind: 'checkpoint' }
+      : undefined;
 
   return {
-    ...shipment,
-    progress: delivered ? 1 : progress,
-    position,
-    currentLocationLabel: label,
-    status,
-    priority,
-    delayMinutes,
-    scheduledEta: shipment.scheduledEta,
-    predictedEta: predictedEta.toISOString(),
-    lastUpdateSeconds,
-    signalLostSeconds,
-    stationarySeconds,
-    timeline: nextTimeline,
+    shipment: {
+      ...shipment,
+      progress: delivered ? 1 : progress,
+      position,
+      currentLocationLabel: label,
+      status,
+      priority,
+      delayMinutes,
+      scheduledEta: shipment.scheduledEta,
+      predictedEta: predictedEta.toISOString(),
+      lastUpdateSeconds,
+      signalLostSeconds,
+      stationarySeconds,
+      updatedAt: now.toISOString(),
+    },
+    newEvent,
   };
 }

@@ -14,21 +14,37 @@ A high-fidelity logistics operations dashboard concept built as a portfolio piec
 - **Carrier Performance** — on-time rate, average delay, transit time, volume, and exception rate per carrier.
 - **Analytics** — 30-day on-time trend, delay-by-region, and carrier comparison charts.
 
-## Real-time simulation engine
+## Real-time architecture (backed by Supabase)
 
-There's no live GPS or carrier feed behind this prototype, so the "real-time" layer is a self-contained simulation engine (`src/hooks/useRealtimeShipments.ts`) built to behave like one:
+There's no live GPS or carrier feed to plug into, so this prototype's browser tab plays the role of the "Carrier/GPS Data" source in the spec's architecture diagram — but everything downstream of that is a real Supabase project, not mock local state:
 
-- A pool of ~100 shipments is generated across real Kenyan trade lanes (Nairobi ↔ Mombasa, Nairobi ↔ Kisumu, Nakuru ↔ Eldoret, etc.) with realistic transit times derived from great-circle distance.
-- Every tick (`src/utils/simulation.ts`), each shipment advances along its route, occasionally stalls (simulating traffic/breakdowns) or drops GPS signal, and its predicted ETA drifts accordingly.
-- Exceptions are *derived*, not scripted: a shipment becomes `delayed` when it's been stationary too long, `at_risk` when its predicted delay crosses a threshold, and flagged as signal-lost when GPS pings stop (`src/utils/exceptions.ts`). The Exception Center, table, and map all read from the same live shipment state, so the numbers never disagree with each other.
-- Delivered shipments cycle back into new shipments so the network stays busy indefinitely, and network-wide KPIs random-walk around realistic seed values while reacting to real events in the pool (a delivery bumps "Delivered Today", a stall creates a new exception, etc.).
+- **Postgres tables** (`carriers`, `shipments`, `shipment_events`, `notifications`, `network_metrics`, `exception_acks`) hold all operational state. Row Level Security is enabled on every table.
+- **Supabase Realtime** is enabled on `shipments`, `notifications`, `network_metrics`, and `exception_acks`. The app subscribes via `postgres_changes` (`src/hooks/useRealtimeShipments.ts`), so any change — from this tab, another tab, or the Supabase SQL editor — is broadcast to every connected client and reflected live without a page refresh.
+- **The simulation tick** (`src/utils/simulation.ts`) still runs client-side every 4s: it advances each shipment along its route, occasionally stalls it or drops GPS signal, drifts its predicted ETA, and derives exceptions (`src/utils/exceptions.ts`) from the result. The computed batch is written to Supabase via a single `upsert`; the UI updates optimistically and then reconciles via the Realtime echo.
+- **First load seeds the database**: if `shipments`/`carriers`/`network_metrics` are empty, the app generates the initial pool (`src/data/shipmentFactory.ts`) and inserts it once. After that, state is fully persisted — refreshing the page (or opening it in a second tab) picks up exactly where the network left off.
+- **Shipment history** (`shipment_events`) is fetched and subscribed to lazily, only for the shipment currently open in the detail drawer (`src/hooks/useShipmentTimeline.ts`), rather than loaded for every row in the table.
+- **Exception acknowledgement** (`exception_acks`) and **notifications** are persisted rows, not local component state — so "Contact Dispatcher" actions and the notification feed are shared across every coordinator viewing the dashboard, not just your own browser tab.
 
-This architecture is intentionally the same shape a real integration would take — swap `useRealtimeShipments` for a hook backed by Supabase Realtime subscriptions over a PostgreSQL `shipments` table, and the rest of the UI (map, table, exception center, detail drawer) needs no changes.
+### ⚠️ Security tradeoff (read before deploying anywhere public)
+
+This is a demo with no authentication layer, so RLS policies grant the `anon` key both read **and write** access to every operational table (see the `create_logistics_schema` migration). That's what lets the browser itself act as the simulator. It's a reasonable simplification for a local/portfolio demo, but it means anyone with the anon key (which ships in the frontend bundle, as designed) could write to these tables. **Before deploying this publicly with real stakes**, move the simulation tick into a server-side Edge Function or scheduled job authenticated with the service role key, and restrict the `anon` policies to `SELECT` only.
+
+### Environment variables
+
+```bash
+cp .env.example .env
+# then fill in:
+# VITE_SUPABASE_URL=https://<your-project-ref>.supabase.co
+# VITE_SUPABASE_ANON_KEY=<your publishable/anon key>
+```
+
+Both values are Supabase's public/publishable credentials (safe to expose in a frontend bundle) — not secrets like a service role key.
 
 ## Tech stack
 
 - **React 18 + TypeScript + Vite**
 - **Tailwind CSS** for the enterprise control-center visual language (deep navy/charcoal, blue/green/amber/red status colors, thin borders, subtle motion)
+- **Supabase** (Postgres + Realtime) for persistence and live updates
 - **Recharts** for analytics visualizations
 - **lucide-react** for icons
 
@@ -36,8 +52,9 @@ This architecture is intentionally the same shape a real integration would take 
 
 ```bash
 npm install
-npm run dev      # start the dev server
-npm run build    # type-check and build for production
+cp .env.example .env   # fill in your Supabase project URL + anon key
+npm run dev             # start the dev server — first load seeds the database
+npm run build           # type-check and build for production
 ```
 
 ## Project structure
@@ -47,7 +64,8 @@ src/
   types/            Shared domain types (Shipment, Carrier, ExceptionRecord, ...)
   data/             City/route/carrier reference data + shipment factory
   utils/            Formatting, exception detection, and the tick-based simulation step
-  hooks/            useRealtimeShipments (the simulation engine), useShipmentFilters
+  lib/              Supabase client, DB row types, and row <-> domain-type mappers
+  hooks/            useRealtimeShipments (Supabase-backed live state), useShipmentTimeline, useShipmentFilters
   components/
     layout/         Header, nav, notification center
     overview/       KPI metric cards
