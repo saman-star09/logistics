@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Truck } from 'lucide-react';
+import { AlertTriangle, Truck } from 'lucide-react';
 import { Header, type ViewKey } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { OverviewMetrics } from '@/components/overview/OverviewMetrics';
@@ -17,6 +17,7 @@ function App() {
 
   const {
     ready,
+    configError,
     shipments,
     exceptions,
     overview,
@@ -30,6 +31,23 @@ function App() {
   const carrierMap = useMemo(() => new Map(carriers.map((c) => [c.id, c])), [carriers]);
   const selectedShipment = shipments.find((s) => s.id === selectedId) ?? null;
   const criticalExceptionCount = exceptions.filter((e) => e.severity === 'critical' && !e.acknowledged).length;
+
+  if (configError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface-base px-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent-red/10 text-accent-red">
+          <AlertTriangle size={22} strokeWidth={2.25} />
+        </div>
+        <p className="text-sm font-medium text-ink-primary">Supabase is not configured</p>
+        <p className="max-w-sm text-xs text-ink-muted">
+          Set <code className="font-mono text-ink-secondary">VITE_SUPABASE_URL</code> and{' '}
+          <code className="font-mono text-ink-secondary">VITE_SUPABASE_ANON_KEY</code> in a{' '}
+          <code className="font-mono text-ink-secondary">.env</code> file (see{' '}
+          <code className="font-mono text-ink-secondary">.env.example</code>), then rebuild.
+        </p>
+      </div>
+    );
+  }
 
   if (!ready) {
     return (

@@ -57,6 +57,15 @@ npm run dev             # start the dev server — first load seeds the database
 npm run build           # type-check and build for production
 ```
 
+## Deploying to GitHub Pages
+
+A workflow at `.github/workflows/deploy.yml` builds and publishes `dist/` on every push to `main` (or via "Run workflow" in the Actions tab). One-time setup: in the repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
+
+Two things that make a Vite SPA go blank on Pages if missed, both already handled here:
+
+- **Asset paths**: `vite.config.ts` sets `base: './'` so built asset URLs are relative — Pages serves project sites from `/<repo-name>/`, and Vite's default root-relative paths (`/assets/...`) 404 there.
+- **Env vars at build time**: Pages is a static host with no server-side env injection, so `VITE_*` variables must already be present when `npm run build` runs. `.env.production` is committed with the project's Supabase URL and anon/publishable key — those are meant to be public (they ship in every Supabase frontend bundle regardless), unlike a service role key, which should never be committed. If they're ever missing, the app now shows an on-screen "Supabase is not configured" message instead of a silent blank page.
+
 ## Project structure
 
 ```

@@ -4,7 +4,7 @@ import { createShipment, respawnShipment } from '@/data/shipmentFactory';
 import { advanceShipment } from '@/utils/simulation';
 import { deriveExceptions } from '@/utils/exceptions';
 import { CARRIERS } from '@/data/carriers';
-import { supabase } from '@/lib/supabaseClient';
+import { isSupabaseConfigured, supabase } from '@/lib/supabaseClient';
 import type { CarrierRow, ExceptionAckRow, NetworkMetricsRow, NotificationRow, ShipmentRow } from '@/lib/database.types';
 import { carrierFromRow, carrierToRow, shipmentFromRow, shipmentToRow } from '@/lib/mappers';
 
@@ -118,6 +118,7 @@ async function ensureNetworkMetrics(): Promise<{ metrics: Metrics; baseline: Bas
 
 export function useRealtimeShipments() {
   const [ready, setReady] = useState(false);
+  const [configError, setConfigError] = useState(false);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [acknowledged, setAcknowledged] = useState<Set<string>>(new Set());
@@ -152,6 +153,11 @@ export function useRealtimeShipments() {
   }, [carriers]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setConfigError(true);
+      return;
+    }
+
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -391,6 +397,7 @@ export function useRealtimeShipments() {
 
   return {
     ready,
+    configError,
     shipments,
     exceptions,
     overview,
